@@ -77,9 +77,13 @@ export async function initializeServer(): Promise<void> {
 	httpRouter.get(/\/renderer\/.*/, async (ctx: Koa.ParameterizedContext) => {
 		const relPath = ctx.path.trim().replace(/^\/renderer\//, '')
 		const rendererDist = path.resolve('../renderer-layer/dist')
-		// Inject OSC_WS_URL into renderer index.html so the renderer uses the correct WebSocket URL
+		// Inject OSC_HOSTNAME-derived URLs into renderer index.html so it connects to the correct
+		// server (HTTP API for loading graphics) and WebSocket (for renderer control protocol).
 		if (relPath === 'index.html' || relPath === '') {
 			const oscHostname = process.env.OSC_HOSTNAME
+			const serverUrl = oscHostname
+				? `https://${oscHostname}`
+				: `http://localhost:${process.env.PORT || '8080'}`
 			const wsUrl = oscHostname
 				? `wss://${oscHostname}`
 				: `ws://localhost:${process.env.PORT || '8080'}`
@@ -88,7 +92,7 @@ export async function initializeServer(): Promise<void> {
 				const html = await fs.readFile(htmlPath, 'utf8')
 				const injected = html.replace(
 					'<head>',
-					`<head><script>window.__OGRAF_WS_URL__ = ${JSON.stringify(wsUrl)};</script>`
+					`<head><script>window.__OGRAF_SERVER_URL__ = ${JSON.stringify(serverUrl)};window.__OGRAF_WS_URL__ = ${JSON.stringify(wsUrl)};</script>`
 				)
 				ctx.set('Content-Type', 'text/html')
 				ctx.set('charset', 'utf-8')
